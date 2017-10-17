@@ -22,7 +22,7 @@ public class Chunk : MonoBehaviour
 	private BlockData[] blocks = new BlockData[CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
 
 	private const uint MASTER_TEXTURE_WIDTH = 128;
-	private const uint CUBE_TEXTURE_WIDTH = 32;
+	private const uint CUBE_TEXTURE_WIDTH = 16;
 
 	private Mesh mesh;
 	/// Does chunk need to regenerate mesh data
@@ -82,6 +82,12 @@ public class Chunk : MonoBehaviour
 		mesh.uv = uvs.ToArray();
 		mesh.triangles = triangleIndices.ToArray();
 		isDirty = false;
+
+		var meshCollider = GetComponent<MeshCollider>();
+		if(meshCollider)
+		{
+			meshCollider.sharedMesh = mesh;
+		}
 	}
 
 	/// <summary>
@@ -90,7 +96,7 @@ public class Chunk : MonoBehaviour
 	/// </summary>
 	bool IsBlockVisible(int x, int y, int z)
 	{
-		if(GetBlock(x, y, z).blockType == 0)
+		if (GetBlock(x, y, z).blockType == 0)
 			return false; //do not render air blocks
 
 		//block is visible if it's located on chunk border, or neighboring block is empty
@@ -178,12 +184,13 @@ public class Chunk : MonoBehaviour
 	private void FillUVs(List<Vector2> uvs, uint textureIndex)
 	{
 		var texturesPerLine = MASTER_TEXTURE_WIDTH / CUBE_TEXTURE_WIDTH;
-		Vector2 subtexturePos = new Vector2(textureIndex % texturesPerLine, textureIndex / texturesPerLine)*CUBE_TEXTURE_WIDTH;
+		Vector2 subtexturePos = new Vector2(textureIndex % texturesPerLine, textureIndex / texturesPerLine);
 
-		uvs.Add(new Vector2(0, 0)*CUBE_TEXTURE_WIDTH + subtexturePos);
-		uvs.Add(new Vector2(0, 1)*CUBE_TEXTURE_WIDTH + subtexturePos);
-		uvs.Add(new Vector2(1, 0)*CUBE_TEXTURE_WIDTH + subtexturePos);
-		uvs.Add(new Vector2(1, 1)*CUBE_TEXTURE_WIDTH + subtexturePos);
+		// uvs are in range [0; 1], not pixels
+		uvs.Add((new Vector2(0, 0) + subtexturePos) / texturesPerLine);
+		uvs.Add((new Vector2(0, 1) + subtexturePos) / texturesPerLine);
+		uvs.Add((new Vector2(1, 0) + subtexturePos) / texturesPerLine);
+		uvs.Add((new Vector2(1, 1) + subtexturePos) / texturesPerLine);
 	}
 
 	/// <summary>
