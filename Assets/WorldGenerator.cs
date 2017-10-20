@@ -4,17 +4,18 @@ using UnityEngine;
 
 public class WorldGenerator
 {
-
-
 	public const int MIN_HEIGHT = 1;
-	public const int MAX_HEIGHT = 5;
+	public const int MAX_HEIGHT = 9;
+
+	const float noiseScale = 0.1233356f; //must be a non-integer to avoid perlin artifacts
+	const float areaNoiseScale = 0.0177657f;
 
 	public void FillChunk(Chunk chunk, Vector2Int chunkPos)
 	{
 		var dirtBlockType = BlockRegistry.GetTypeByName("Dirt");
 		var grassBlockType = BlockRegistry.GetTypeByName("Grass");
 
-		const float noiseScale = 0.123456f;
+		
 
 		for (int z = 0; z < Chunk.CHUNK_SIZE; ++z)
 			for (int x = 0; x < Chunk.CHUNK_SIZE; ++x)
@@ -22,7 +23,7 @@ public class WorldGenerator
 				int worldX = (int)(chunkPos.x * Chunk.CHUNK_SIZE + x);
 				int worldZ = (int)(chunkPos.y * Chunk.CHUNK_SIZE + z);
 
-				int height = (int)(Mathf.PerlinNoise(worldX*noiseScale, worldZ*noiseScale) * (MAX_HEIGHT - MIN_HEIGHT)) + MIN_HEIGHT;
+				int height = HeightFunction(worldX, worldZ);
 				
 
 				//set top to be grass, the rest is dirt
@@ -32,6 +33,17 @@ public class WorldGenerator
 					chunk.SetBlockType(x, y, z, dirtBlockType);
 				}
 			}
+	}
+
+	int HeightFunction(int worldX, int worldZ)
+	{
+		float localNoise = Mathf.PerlinNoise(worldX * noiseScale, worldZ * noiseScale);
+		float areaNoise = Mathf.PerlinNoise(worldX * areaNoiseScale, worldZ * areaNoiseScale);
+
+		// mix local and area noise 3:1
+		float combinedNoise = (localNoise + areaNoise * 3) / 4;
+
+		return (int)(combinedNoise*(MAX_HEIGHT - MIN_HEIGHT)) + MIN_HEIGHT;
 	}
 }
 

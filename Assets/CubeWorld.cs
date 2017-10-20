@@ -7,15 +7,16 @@ using UnityEngine.Assertions;
 
 public class CubeWorld : MonoBehaviour {
 
-	public const uint CUBE_SIZE = 2;
+	public const int CUBE_SIZE = 2;
+	public const int viewDistance = 5;
 
 	public Material chunkMaterial;
 	private WorldGenerator generator = new WorldGenerator();
 
 	void Start ()
 	{
-		for(int x = -5; x< 5; x++)
-			for(int y = -5; y< 5; y++)
+		for(int x = -viewDistance; x< viewDistance; x++)
+			for(int y = -viewDistance; y< viewDistance; y++)
 			{
 				CreateChunk(new Vector2Int(x, y));
 			}
@@ -28,7 +29,7 @@ public class CubeWorld : MonoBehaviour {
 
 		// move to correct position
 		chunkObject.transform.parent = this.transform;
-		Vector2 pos2D = chunkPos * (int)(Chunk.CHUNK_SIZE);
+		Vector2 pos2D = chunkPos * (int)(Chunk.CHUNK_SIZE)*CUBE_SIZE;
 		chunkObject.transform.localPosition = new Vector3(pos2D.x, 0, pos2D.y);
 
 		// set default material for chunk
