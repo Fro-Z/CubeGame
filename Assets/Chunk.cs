@@ -4,7 +4,7 @@ using UnityEngine.Assertions;
 using UnityEngine;
 using System;
 
-using BlockType = System.UInt32;
+using BlockType = System.Int32;
 
 static class FlagExtension
 {
@@ -20,9 +20,9 @@ public enum Faces : byte
 
 public class Chunk : MonoBehaviour
 {
-	public struct BlockData
+	private struct BlockData
 	{
-		public BlockData(uint blockType, uint damage)
+		public BlockData(BlockType blockType, int damage)
 		{
 			this.blockType = blockType;
 			this.damage = damage;
@@ -30,18 +30,18 @@ public class Chunk : MonoBehaviour
 		}
 
 		public BlockType blockType;
-		public uint damage;
+		public int damage;
 
 		public Faces visibleFaces;
 
 	}
 
-	public const uint CHUNK_SIZE = 16;
+	public const int CHUNK_SIZE = 16;
 	private BlockData[] blocks = new BlockData[CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE];
 
-	private const uint MASTER_TEXTURE_WIDTH = 128;
-	private const uint CUBE_TEXTURE_WIDTH = 16;
-	private const uint BLOCK_AIR = 0;
+	private const int MASTER_TEXTURE_WIDTH = 128;
+	private const int CUBE_TEXTURE_WIDTH = 16;
+	private const int BLOCK_AIR = 0;
 
 	private Mesh mesh;
 	/// Does chunk need to regenerate mesh data
@@ -63,10 +63,10 @@ public class Chunk : MonoBehaviour
 		isDirty = true;
 	}
 
-	private uint GetBlockIdx(int x, int y, int z)
+	private int GetBlockIdx(int x, int y, int z)
 	{
 		Assert.IsTrue(x >= 0 && y >= 0 && z >= 0 && x < CHUNK_SIZE && y < CHUNK_SIZE && z < CHUNK_SIZE, "Invalid chunk block position");
-		return (uint)(x + CHUNK_SIZE * y + (CHUNK_SIZE * CHUNK_SIZE) * z);
+		return (int)(x + CHUNK_SIZE * y + (CHUNK_SIZE * CHUNK_SIZE) * z);
 	}
 
 	void Update()
@@ -112,6 +112,7 @@ public class Chunk : MonoBehaviour
 		mesh.vertices = vertices.ToArray();
 		mesh.uv = uvs.ToArray();
 		mesh.triangles = triangleIndices.ToArray();
+		mesh.RecalculateNormals();
 		isDirty = false;
 
 		float timeToGenMesh = (Time.realtimeSinceStartup - startTime) * 1000;
@@ -173,9 +174,9 @@ public class Chunk : MonoBehaviour
 	/// </summary>
 	void GenerateBlock(int x, int y, int z, List<Vector3> vertices, List<Vector2> uvs, List<int> triangles)
 	{
-		
 		Vector3 origin = new Vector3(x, y, z) * CubeWorld.CUBE_SIZE;
 		Faces faces = blocks[GetBlockIdx(x, y, z)].visibleFaces;
+		var blockType = GetBlockType(x, y, z);
 
 		//top face
 		if (faces.HasFlag(Faces.TOP))
@@ -185,10 +186,9 @@ public class Chunk : MonoBehaviour
 			vertices.Add(new Vector3(1, 1, 0) * CubeWorld.CUBE_SIZE + origin);
 			vertices.Add(new Vector3(0, 1, 1) * CubeWorld.CUBE_SIZE + origin);
 			vertices.Add(new Vector3(1, 1, 1) * CubeWorld.CUBE_SIZE + origin);
-			FillUVs(uvs, 0);
+			FillUVs(uvs, BlockRegistry.GetTextureIndex(blockType, Faces.TOP));
 			triangles.AddRange(CreateTriangles(idxStart));
 		}
-
 
 		//bottom face
 		if (faces.HasFlag(Faces.BOTTOM))
@@ -198,7 +198,7 @@ public class Chunk : MonoBehaviour
 			vertices.Add(new Vector3(0, 0, 1) * CubeWorld.CUBE_SIZE + origin);
 			vertices.Add(new Vector3(1, 0, 0) * CubeWorld.CUBE_SIZE + origin);
 			vertices.Add(new Vector3(1, 0, 1) * CubeWorld.CUBE_SIZE + origin);
-			FillUVs(uvs, 0);
+			FillUVs(uvs, BlockRegistry.GetTextureIndex(blockType, Faces.BOTTOM));
 			triangles.AddRange(CreateTriangles(idxStart));
 		}
 
@@ -206,11 +206,11 @@ public class Chunk : MonoBehaviour
 		if (faces.HasFlag(Faces.LEFT))
 		{
 			var idxStart = vertices.Count;
-			vertices.Add(new Vector3(0, 0, 0) * CubeWorld.CUBE_SIZE + origin);
-			vertices.Add(new Vector3(0, 1, 0) * CubeWorld.CUBE_SIZE + origin);
 			vertices.Add(new Vector3(0, 0, 1) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(0, 0, 0) * CubeWorld.CUBE_SIZE + origin);
 			vertices.Add(new Vector3(0, 1, 1) * CubeWorld.CUBE_SIZE + origin);
-			FillUVs(uvs, 0);
+			vertices.Add(new Vector3(0, 1, 0) * CubeWorld.CUBE_SIZE + origin);
+			FillUVs(uvs, BlockRegistry.GetTextureIndex(blockType, Faces.LEFT));
 			triangles.AddRange(CreateTriangles(idxStart));
 		}
 
@@ -222,7 +222,7 @@ public class Chunk : MonoBehaviour
 			vertices.Add(new Vector3(1, 0, 1) * CubeWorld.CUBE_SIZE + origin);
 			vertices.Add(new Vector3(1, 1, 0) * CubeWorld.CUBE_SIZE + origin);
 			vertices.Add(new Vector3(1, 1, 1) * CubeWorld.CUBE_SIZE + origin);
-			FillUVs(uvs, 0);
+			FillUVs(uvs, BlockRegistry.GetTextureIndex(blockType, Faces.RIGHT));
 			triangles.AddRange(CreateTriangles(idxStart));
 		}
 
@@ -234,7 +234,7 @@ public class Chunk : MonoBehaviour
 			vertices.Add(new Vector3(1, 0, 0) * CubeWorld.CUBE_SIZE + origin);
 			vertices.Add(new Vector3(0, 1, 0) * CubeWorld.CUBE_SIZE + origin);
 			vertices.Add(new Vector3(1, 1, 0) * CubeWorld.CUBE_SIZE + origin);
-			FillUVs(uvs, 0);
+			FillUVs(uvs, BlockRegistry.GetTextureIndex(blockType, Faces.FRONT));
 			triangles.AddRange(CreateTriangles(idxStart));
 		}
 
@@ -242,11 +242,11 @@ public class Chunk : MonoBehaviour
 		if (faces.HasFlag(Faces.BACK))
 		{
 			var idxStart = vertices.Count;
-			vertices.Add(new Vector3(0, 0, 1) * CubeWorld.CUBE_SIZE + origin);
-			vertices.Add(new Vector3(0, 1, 1) * CubeWorld.CUBE_SIZE + origin);
 			vertices.Add(new Vector3(1, 0, 1) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(0, 0, 1) * CubeWorld.CUBE_SIZE + origin);
 			vertices.Add(new Vector3(1, 1, 1) * CubeWorld.CUBE_SIZE + origin);
-			FillUVs(uvs, 0);
+			vertices.Add(new Vector3(0, 1, 1) * CubeWorld.CUBE_SIZE + origin);
+			FillUVs(uvs, BlockRegistry.GetTextureIndex(blockType, Faces.BACK));
 			triangles.AddRange(CreateTriangles(idxStart));
 		}
 	}
@@ -262,8 +262,8 @@ public class Chunk : MonoBehaviour
 
 		// uvs are in range [0; 1], not pixels
 		uvs.Add((new Vector2(0, 0) + subtexturePos) / texturesPerLine);
-		uvs.Add((new Vector2(0, 1) + subtexturePos) / texturesPerLine);
 		uvs.Add((new Vector2(1, 0) + subtexturePos) / texturesPerLine);
+		uvs.Add((new Vector2(0, 1) + subtexturePos) / texturesPerLine);
 		uvs.Add((new Vector2(1, 1) + subtexturePos) / texturesPerLine);
 	}
 

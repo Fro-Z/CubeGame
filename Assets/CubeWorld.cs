@@ -12,33 +12,31 @@ public class CubeWorld : MonoBehaviour {
 	public Material chunkMaterial;
 	private WorldGenerator generator = new WorldGenerator();
 
-	GameObject testChunkObject;
-	
-	
 	void Start ()
 	{
-		runInEditMode = true;
-		if(!testChunkObject)
-		{
-			testChunkObject = new GameObject("chunk", typeof(MeshFilter), typeof(MeshRenderer), typeof(Chunk), typeof(MeshCollider));
-			testChunkObject.transform.parent = this.transform;
-
-			//set default material for chunk
-			var meshRenderer = testChunkObject.GetComponent<MeshRenderer>();
-			if(meshRenderer)
+		for(int x = -5; x< 5; x++)
+			for(int y = -5; y< 5; y++)
 			{
-				meshRenderer.material = chunkMaterial;
+				CreateChunk(new Vector2Int(x, y));
 			}
 
-		}
-
-		Chunk testChunk = testChunkObject.GetComponent<Chunk>();
-		generator.FillChunk(testChunk, new Vector2Int(0, 0));
 	}
 
-	private void OnDestroy()
+	void CreateChunk(Vector2Int chunkPos)
 	{
-		DestroyImmediate(testChunkObject.gameObject);
+		GameObject chunkObject = new GameObject("chunk", typeof(MeshFilter), typeof(MeshRenderer), typeof(Chunk), typeof(MeshCollider));
+
+		// move to correct position
+		chunkObject.transform.parent = this.transform;
+		Vector2 pos2D = chunkPos * (int)(Chunk.CHUNK_SIZE);
+		chunkObject.transform.localPosition = new Vector3(pos2D.x, 0, pos2D.y);
+
+		// set default material for chunk
+		chunkObject.GetComponent<MeshRenderer>().material = chunkMaterial;
+
+		// generate blocks
+		Chunk chunk = chunkObject.GetComponent<Chunk>();
+		generator.FillChunk(chunk, chunkPos);
 	}
 
 	void Update () {
