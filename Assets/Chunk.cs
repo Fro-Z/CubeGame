@@ -2,8 +2,22 @@
 using System.Collections.Generic;
 using UnityEngine.Assertions;
 using UnityEngine;
+using System;
 
-[ExecuteInEditMode]
+using BlockType = System.UInt32;
+
+static class FlagExtension
+{
+	static public bool HasFlag(this Faces faces, Faces flag)
+	{
+		return ((faces & flag) == flag);
+	}
+}
+
+[Flags]
+public enum Faces : byte
+{ NONE = 0, TOP = 1, LEFT = 2, RIGHT = 4, FRONT = 8, BACK = 16, BOTTOM = 32 }
+
 public class Chunk : MonoBehaviour
 {
 	public struct BlockData
@@ -12,10 +26,14 @@ public class Chunk : MonoBehaviour
 		{
 			this.blockType = blockType;
 			this.damage = damage;
+			this.visibleFaces = 0;
 		}
 
-		public uint blockType;
+		public BlockType blockType;
 		public uint damage;
+
+		public Faces visibleFaces;
+
 	}
 
 	public const uint CHUNK_SIZE = 16;
@@ -23,22 +41,32 @@ public class Chunk : MonoBehaviour
 
 	private const uint MASTER_TEXTURE_WIDTH = 128;
 	private const uint CUBE_TEXTURE_WIDTH = 16;
+	private const uint BLOCK_AIR = 0;
 
 	private Mesh mesh;
 	/// Does chunk need to regenerate mesh data
 	private bool isDirty = false;
 
-	public BlockData GetBlock(int x, int y, int z)
+	public BlockType GetBlockType(int x, int y, int z)
 	{
 		Assert.IsTrue(x >= 0 && y >= 0 && z >= 0 && x < CHUNK_SIZE && y < CHUNK_SIZE && z < CHUNK_SIZE, "Invalid chunk block position");
-		return blocks[x + CHUNK_SIZE * y + (CHUNK_SIZE * CHUNK_SIZE) * z];
+		return blocks[GetBlockIdx(x, y, z)].blockType;
 	}
 
-	public void SetBlock(int x, int y, int z, BlockData block)
+	public void SetBlockType(int x, int y, int z, BlockType type)
 	{
 		Assert.IsTrue(x >= 0 && y >= 0 && z >= 0 && x < CHUNK_SIZE && y < CHUNK_SIZE && z < CHUNK_SIZE, "Invalid chunk block position");
-		blocks[x + CHUNK_SIZE * y + (CHUNK_SIZE * CHUNK_SIZE) * z] = block;
+		var blockIdx = GetBlockIdx(x, y, z);
+		blocks[blockIdx].blockType = type;
+		blocks[blockIdx].damage = 0;
+
 		isDirty = true;
+	}
+
+	private uint GetBlockIdx(int x, int y, int z)
+	{
+		Assert.IsTrue(x >= 0 && y >= 0 && z >= 0 && x < CHUNK_SIZE && y < CHUNK_SIZE && z < CHUNK_SIZE, "Invalid chunk block position");
+		return (uint)(x + CHUNK_SIZE * y + (CHUNK_SIZE * CHUNK_SIZE) * z);
 	}
 
 	void Update()
@@ -49,6 +77,7 @@ public class Chunk : MonoBehaviour
 
 	void Start()
 	{
+		// create a new mesh instance for this chunk
 		mesh = new Mesh();
 
 		MeshFilter meshFilter = GetComponent<MeshFilter>();
@@ -64,6 +93,7 @@ public class Chunk : MonoBehaviour
 	/// </summary>
 	public void GenerateMesh()
 	{
+		var startTime = Time.realtimeSinceStartup;
 		mesh.Clear();
 
 		List<Vector3> vertices = new List<Vector3>();
@@ -74,6 +104,7 @@ public class Chunk : MonoBehaviour
 			for (int y = 0; y < CHUNK_SIZE; ++y)
 				for (int x = 0; x < CHUNK_SIZE; ++x)
 				{
+					UpdateVisibleFaces(x, y, z);
 					if (IsBlockVisible(x, y, z))
 						GenerateBlock(x, y, z, vertices, uvs, triangleIndices);
 				}
@@ -83,98 +114,141 @@ public class Chunk : MonoBehaviour
 		mesh.triangles = triangleIndices.ToArray();
 		isDirty = false;
 
+		float timeToGenMesh = (Time.realtimeSinceStartup - startTime) * 1000;
+
+		var collisionGenStartTime = Time.realtimeSinceStartup;
 		var meshCollider = GetComponent<MeshCollider>();
 		if(meshCollider)
 		{
 			meshCollider.sharedMesh = mesh;
 		}
+
+
+		float timeToGenCollision = (Time.realtimeSinceStartup - collisionGenStartTime) * 1000;
+		print("generating mesh took " + timeToGenMesh + "ms, + " + timeToGenCollision +"ms to generate collision");
 	}
 
-	/// <summary>
-	/// Is block visible from outside. 
-	/// Blocks on chunk border are considered visible even when possibly occluded by another chunk's blocks.
-	/// </summary>
-	bool IsBlockVisible(int x, int y, int z)
+	public bool IsBlockVisible(int x, int y, int z)
 	{
-		if (GetBlock(x, y, z).blockType == 0)
-			return false; //do not render air blocks
-
-		//block is visible if it's located on chunk border, or neighboring block is empty
-		if (x == 0 || x == CHUNK_SIZE - 1 ||
-			y == 0 || y == CHUNK_SIZE - 1 ||
-			z == 0 || z == CHUNK_SIZE - 1)
-			return true;
-
-		//test neighbors
-		if (GetBlock(x - 1, y, z).blockType == 0 || GetBlock(x + 1, y, z).blockType == 0)
-			return true;
-		if (GetBlock(x, y - 1, z).blockType == 0 || GetBlock(x, y + 1, z).blockType == 0)
-			return true;
-		if (GetBlock(x, y, z - 1).blockType == 0 || GetBlock(x, y, z + 1).blockType == 0)
-			return true;
-
-		return false;
+		var blockIdx = GetBlockIdx(x, y, z);
+		return blocks[blockIdx].visibleFaces != Faces.NONE && blocks[blockIdx].blockType != 0;
 	}
 
+	private void UpdateVisibleFaces(int x, int y, int z)
+	{
+		var blockIdx = GetBlockIdx(x, y, z);
+
+		if (blocks[blockIdx].blockType == BLOCK_AIR)
+		{
+			// air blocks have no visible faces
+			blocks[blockIdx].visibleFaces = Faces.NONE;
+			return;
+		}
+
+		if (x == 0 || GetBlockType(x - 1, y, z) == BLOCK_AIR)
+			blocks[blockIdx].visibleFaces |= Faces.LEFT;
+
+		if (x == CHUNK_SIZE - 1 || GetBlockType(x + 1, y, z) == BLOCK_AIR)
+			blocks[blockIdx].visibleFaces |= Faces.RIGHT;
+
+
+		if (y == 0 || GetBlockType(x, y - 1, z) == BLOCK_AIR)
+			blocks[blockIdx].visibleFaces |= Faces.BOTTOM;
+
+		if (y == CHUNK_SIZE - 1 || GetBlockType(x, y + 1, z) == BLOCK_AIR)
+			blocks[blockIdx].visibleFaces |= Faces.TOP;
+
+
+		if (z == 0 || GetBlockType(x, y, z - 1) == BLOCK_AIR)
+			blocks[blockIdx].visibleFaces |= Faces.FRONT;
+
+		if (z == CHUNK_SIZE - 1 || GetBlockType(x, y, z + 1) == BLOCK_AIR)
+			blocks[blockIdx].visibleFaces |= Faces.BACK;
+	}
+
+
+
 	/// <summary>
-	/// Generate mesh data for a single block
+	/// Generate mesh data for each visible face on a block
 	/// </summary>
 	void GenerateBlock(int x, int y, int z, List<Vector3> vertices, List<Vector2> uvs, List<int> triangles)
 	{
-		//top face
+		
 		Vector3 origin = new Vector3(x, y, z) * CubeWorld.CUBE_SIZE;
-		var idxStart = vertices.Count;
-		vertices.Add(new Vector3(0, 1, 0) * CubeWorld.CUBE_SIZE + origin);
-		vertices.Add(new Vector3(1, 1, 0) * CubeWorld.CUBE_SIZE + origin);
-		vertices.Add(new Vector3(0, 1, 1) * CubeWorld.CUBE_SIZE + origin);
-		vertices.Add(new Vector3(1, 1, 1) * CubeWorld.CUBE_SIZE + origin);
-		FillUVs(uvs, 0);
-		triangles.AddRange(CreateTriangles(idxStart));
+		Faces faces = blocks[GetBlockIdx(x, y, z)].visibleFaces;
+
+		//top face
+		if (faces.HasFlag(Faces.TOP))
+		{
+			var idxStart = vertices.Count;
+			vertices.Add(new Vector3(0, 1, 0) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(1, 1, 0) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(0, 1, 1) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(1, 1, 1) * CubeWorld.CUBE_SIZE + origin);
+			FillUVs(uvs, 0);
+			triangles.AddRange(CreateTriangles(idxStart));
+		}
+
 
 		//bottom face
-		idxStart = vertices.Count;
-		vertices.Add(new Vector3(0, 0, 0) * CubeWorld.CUBE_SIZE + origin);
-		vertices.Add(new Vector3(0, 0, 1) * CubeWorld.CUBE_SIZE + origin);
-		vertices.Add(new Vector3(1, 0, 0) * CubeWorld.CUBE_SIZE + origin);
-		vertices.Add(new Vector3(1, 0, 1) * CubeWorld.CUBE_SIZE + origin);
-		FillUVs(uvs, 0);
-		triangles.AddRange(CreateTriangles(idxStart));
+		if (faces.HasFlag(Faces.BOTTOM))
+		{
+			var idxStart = vertices.Count;
+			vertices.Add(new Vector3(0, 0, 0) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(0, 0, 1) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(1, 0, 0) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(1, 0, 1) * CubeWorld.CUBE_SIZE + origin);
+			FillUVs(uvs, 0);
+			triangles.AddRange(CreateTriangles(idxStart));
+		}
 
 		//left face
-		idxStart = vertices.Count;
-		vertices.Add(new Vector3(0, 0, 0) * CubeWorld.CUBE_SIZE + origin);
-		vertices.Add(new Vector3(0, 1, 0) * CubeWorld.CUBE_SIZE + origin);
-		vertices.Add(new Vector3(0, 0, 1) * CubeWorld.CUBE_SIZE + origin);
-		vertices.Add(new Vector3(0, 1, 1) * CubeWorld.CUBE_SIZE + origin);
-		FillUVs(uvs, 0);
-		triangles.AddRange(CreateTriangles(idxStart));
+		if (faces.HasFlag(Faces.LEFT))
+		{
+			var idxStart = vertices.Count;
+			vertices.Add(new Vector3(0, 0, 0) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(0, 1, 0) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(0, 0, 1) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(0, 1, 1) * CubeWorld.CUBE_SIZE + origin);
+			FillUVs(uvs, 0);
+			triangles.AddRange(CreateTriangles(idxStart));
+		}
 
 		//right face
-		idxStart = vertices.Count;
-		vertices.Add(new Vector3(1, 0, 0) * CubeWorld.CUBE_SIZE + origin);
-		vertices.Add(new Vector3(1, 0, 1) * CubeWorld.CUBE_SIZE + origin);
-		vertices.Add(new Vector3(1, 1, 0) * CubeWorld.CUBE_SIZE + origin);
-		vertices.Add(new Vector3(1, 1, 1) * CubeWorld.CUBE_SIZE + origin);
-		FillUVs(uvs, 0);
-		triangles.AddRange(CreateTriangles(idxStart));
+		if (faces.HasFlag(Faces.RIGHT))
+		{
+			var idxStart = vertices.Count;
+			vertices.Add(new Vector3(1, 0, 0) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(1, 0, 1) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(1, 1, 0) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(1, 1, 1) * CubeWorld.CUBE_SIZE + origin);
+			FillUVs(uvs, 0);
+			triangles.AddRange(CreateTriangles(idxStart));
+		}
 
 		//front face
-		idxStart = vertices.Count;
-		vertices.Add(new Vector3(0, 0, 0) * CubeWorld.CUBE_SIZE + origin);
-		vertices.Add(new Vector3(1, 0, 0) * CubeWorld.CUBE_SIZE + origin);
-		vertices.Add(new Vector3(0, 1, 0) * CubeWorld.CUBE_SIZE + origin);
-		vertices.Add(new Vector3(1, 1, 0) * CubeWorld.CUBE_SIZE + origin);
-		FillUVs(uvs, 0);
-		triangles.AddRange(CreateTriangles(idxStart));
+		if (faces.HasFlag(Faces.FRONT))
+		{
+			var idxStart = vertices.Count;
+			vertices.Add(new Vector3(0, 0, 0) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(1, 0, 0) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(0, 1, 0) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(1, 1, 0) * CubeWorld.CUBE_SIZE + origin);
+			FillUVs(uvs, 0);
+			triangles.AddRange(CreateTriangles(idxStart));
+		}
 
 		//back face
-		idxStart = vertices.Count;
-		vertices.Add(new Vector3(0, 0, 1) * CubeWorld.CUBE_SIZE + origin);
-		vertices.Add(new Vector3(0, 1, 1) * CubeWorld.CUBE_SIZE + origin);
-		vertices.Add(new Vector3(1, 0, 1) * CubeWorld.CUBE_SIZE + origin);
-		vertices.Add(new Vector3(1, 1, 1) * CubeWorld.CUBE_SIZE + origin);
-		FillUVs(uvs, 0);
-		triangles.AddRange(CreateTriangles(idxStart));
+		if (faces.HasFlag(Faces.BACK))
+		{
+			var idxStart = vertices.Count;
+			vertices.Add(new Vector3(0, 0, 1) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(0, 1, 1) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(1, 0, 1) * CubeWorld.CUBE_SIZE + origin);
+			vertices.Add(new Vector3(1, 1, 1) * CubeWorld.CUBE_SIZE + origin);
+			FillUVs(uvs, 0);
+			triangles.AddRange(CreateTriangles(idxStart));
+		}
 	}
 
 	/// <summary>
