@@ -20,6 +20,7 @@ public class Player : MonoBehaviour {
 	GameObject placementCube; //cube to show placement position of a new block
 	public Material placementCubeMaterial;
 
+	const BlockType BLOCK_AIR = 0;
 
 	void Start ()
 	{
@@ -101,8 +102,19 @@ public class Player : MonoBehaviour {
 		Vector3Int blockPos;
 		if(GetAimpointPreviousBlock(out blockPos))
 		{
-			world.SetBlock(blockPos, selectedBlock);
+			if(CanBuild(blockPos))
+				world.SetBlockType(blockPos, selectedBlock);
 		}
+	}
+
+	bool CanBuild(Vector3Int blockPos)
+	{
+		Vector3Int playerBlockPos = CubeWorld.GetCubeFromWorldPos(gameObject.transform.position);
+		if (blockPos.x == playerBlockPos.x && blockPos.z == playerBlockPos.z &&
+			Mathf.Abs(playerBlockPos.y - blockPos.y) <= 2)
+			return false; //prevent building inside yourself and falling through the new mesh
+
+		return world.GetBlockType(blockPos) == BLOCK_AIR;
 	}
 
 	/// <summary>

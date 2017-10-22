@@ -138,13 +138,11 @@ public class Chunk : MonoBehaviour
 	private void UpdateVisibleFaces(int x, int y, int z)
 	{
 		var blockIdx = GetBlockIdx(x, y, z);
+		blocks[blockIdx].visibleFaces = Faces.NONE;
 
 		if (blocks[blockIdx].blockType == BLOCK_AIR)
-		{
-			// air blocks have no visible faces
-			blocks[blockIdx].visibleFaces = Faces.NONE;
-			return;
-		}
+			return; // air blocks have no visible faces
+		
 
 		if (x == 0 || GetBlockType(x - 1, y, z) == BLOCK_AIR)
 			blocks[blockIdx].visibleFaces |= Faces.LEFT;

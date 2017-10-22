@@ -56,7 +56,7 @@ public class CubeWorld : MonoBehaviour {
 		return chunkPos;
 	}
 
-	public void SetBlock(Vector3Int blockPos, BlockType type)
+	public void SetBlockType(Vector3Int blockPos, BlockType type)
 	{
 		Vector2Int chunkPos = GetChunkFromBlockPos(blockPos);
 
@@ -69,6 +69,23 @@ public class CubeWorld : MonoBehaviour {
 
 			chunkObject.GetComponent<Chunk>().SetBlockType(chunkX, chunkY, chunkZ, type);
 		}
+	}
+
+	public BlockType GetBlockType(Vector3Int blockPos)
+	{
+		Vector2Int chunkPos = GetChunkFromBlockPos(blockPos);
+
+		GameObject chunkObject;
+		if (loadedChunks.TryGetValue(chunkPos, out chunkObject))
+		{
+			int chunkX = blockPos.x - chunkPos.x * Chunk.CHUNK_SIZE;
+			int chunkY = blockPos.y;
+			int chunkZ = blockPos.z - chunkPos.y * Chunk.CHUNK_SIZE;
+
+			return chunkObject.GetComponent<Chunk>().GetBlockType(chunkX, chunkY, chunkZ);
+		}
+		else
+			return 0;
 	}
 
 	GameObject CreateChunk(Vector2Int chunkPos)
