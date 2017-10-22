@@ -103,6 +103,7 @@ public class CubeWorld : MonoBehaviour {
 			return 0;
 	}
 
+	
 	/// <summary>
 	/// Apply damage to a block. Damage exceeding block's maxDamage will destroy the block.
 	/// </summary>
@@ -115,8 +116,22 @@ public class CubeWorld : MonoBehaviour {
 		{
 			Vector3Int offset = GetChunkOffset(worldPos);
 
-			chunkObject.GetComponent<Chunk>().DamageBlock(offset.x, offset.x, offset.x);
+			chunkObject.GetComponent<Chunk>().DamageBlock(offset.x, offset.y, offset.z);
 		}
+	}
+
+	public float GetBlockHealthRatio(Vector3Int worldPos)
+	{
+		Vector2Int chunkPos = GetChunkPos(worldPos);
+
+		GameObject chunkObject;
+		if (loadedChunks.TryGetValue(chunkPos, out chunkObject))
+		{
+			Vector3Int offset = GetChunkOffset(worldPos);
+
+			return chunkObject.GetComponent<Chunk>().GetBlockHealthRatio(offset.x, offset.y, offset.z);
+		}
+		return 0;
 	}
 
 	void Update()

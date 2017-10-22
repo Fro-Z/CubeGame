@@ -1,7 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
+using UnityEngine.UI;
 using BlockType = System.Int32;
 
 /// <summary>
@@ -19,7 +19,8 @@ public class Player : MonoBehaviour {
 
 	GameObject placementCube; //cube to show placement position of a new block
 	public Material placementCubeMaterial;
-
+	public GameObject progressBarObject;
+	
 	const BlockType BLOCK_AIR = 0;
 
 	void Start ()
@@ -36,7 +37,29 @@ public class Player : MonoBehaviour {
 		placementCube.GetComponent<BoxCollider>().enabled = false;
 
 		//cube is slightly bigger, to prevent depth fighting
-		placementCube.transform.localScale = new Vector3(CubeWorld.CUBE_SIZE, CubeWorld.CUBE_SIZE, CubeWorld.CUBE_SIZE)*1.05f; 
+		placementCube.transform.localScale = new Vector3(CubeWorld.CUBE_SIZE, CubeWorld.CUBE_SIZE, CubeWorld.CUBE_SIZE)*1.05f;
+		
+
+	}
+
+	void UpdateProgressBar()
+	{
+		var progressBar = progressBarObject.GetComponent<Image>();
+		if (progressBar == null)
+			return;
+
+		Vector3Int aimpoint;
+		if(GetAimpointNextBlock(out aimpoint))
+		{
+			progressBar.enabled = true;
+			progressBar.fillAmount = world.GetBlockHealthRatio(aimpoint);
+		}
+		else
+		{
+			progressBar.enabled = false;
+		}
+
+		
 	}
 	
 	void Update ()
@@ -50,6 +73,7 @@ public class Player : MonoBehaviour {
 			HandleDestroyModeLogic();
 
 		UpdatePlacementCube();
+		UpdateProgressBar();
 	}
 
 	void ToggleMode()

@@ -69,8 +69,17 @@ public class Chunk : MonoBehaviour
 		var blockIdx = GetBlockIdx(x, y, z);
 		blocks[blockIdx].damage++;
 
-		if (blocks[blockIdx].damage > BlockRegistry.GetMaxDamage(blocks[blockIdx].blockType))
+		if (blocks[blockIdx].damage >= BlockRegistry.GetMaxDamage(blocks[blockIdx].blockType))
 			SetBlockType(x, y, z, BLOCK_AIR);
+	}
+
+	public float GetBlockHealthRatio(int x, int y, int z)
+	{
+		Assert.IsTrue(x >= 0 && y >= 0 && z >= 0 && x < CHUNK_SIZE && y < CHUNK_SIZE && z < CHUNK_SIZE, "Invalid chunk block position");
+		int maxDamage = BlockRegistry.GetMaxDamage(GetBlockType(x, y, z));
+		int damage = blocks[GetBlockIdx(x, y, z)].damage;
+
+		return 1 - (damage / (float) maxDamage);
 	}
 
 	private int GetBlockIdx(int x, int y, int z)
@@ -103,7 +112,6 @@ public class Chunk : MonoBehaviour
 	/// </summary>
 	public void GenerateMesh()
 	{
-		var startTime = Time.realtimeSinceStartup;
 		mesh.Clear();
 
 		List<Vector3> vertices = new List<Vector3>();
@@ -125,18 +133,11 @@ public class Chunk : MonoBehaviour
 		mesh.RecalculateNormals();
 		isDirty = false;
 
-		float timeToGenMesh = (Time.realtimeSinceStartup - startTime) * 1000;
-
-		var collisionGenStartTime = Time.realtimeSinceStartup;
 		var meshCollider = GetComponent<MeshCollider>();
 		if(meshCollider)
 		{
 			meshCollider.sharedMesh = mesh;
 		}
-
-
-		float timeToGenCollision = (Time.realtimeSinceStartup - collisionGenStartTime) * 1000;
-		print("generating mesh took " + timeToGenMesh + "ms, + " + timeToGenCollision +"ms to generate collision");
 	}
 
 	public bool IsBlockVisible(int x, int y, int z)
