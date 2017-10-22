@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Assertions;
 
-
+using BlockType = System.Int32;
 
 public class CubeWorld : MonoBehaviour {
 
@@ -17,12 +17,58 @@ public class CubeWorld : MonoBehaviour {
 
 	void Start ()
 	{
+		transform.position = new Vector3(0, 0, 0);
+
 		for(int x = -viewDistance; x< viewDistance; x++)
 			for(int y = -viewDistance; y< viewDistance; y++)
 			{
 				LoadChunk(new Vector2Int(x, y));
 			}
 
+	}
+
+	public static Vector3Int GetCubeFromWorldPos(Vector3 worldPos)
+	{
+		Vector3Int blockPos = new Vector3Int((int)worldPos.x / CUBE_SIZE, (int)worldPos.y / CUBE_SIZE, (int)worldPos.z / CUBE_SIZE);
+
+		//if worldPos coordinates are negative, we need to move resulting block pos by -1
+		if (worldPos.x < 0)
+			blockPos.x -= 1;
+		if (worldPos.z < 0)
+			blockPos.z -= 1;
+
+		//keep height in the correct range
+		blockPos.y = Mathf.Clamp(blockPos.y, 0, Chunk.CHUNK_SIZE - 1);
+
+		return blockPos;
+	}
+
+	static Vector2Int GetChunkFromBlockPos(Vector3Int blockPos)
+	{
+		Vector2Int chunkPos = new Vector2Int(blockPos.x / Chunk.CHUNK_SIZE, blockPos.z / Chunk.CHUNK_SIZE);
+
+		//if blockPos coordinates are negative, we need to move resulting chunk pos by -1
+		if (blockPos.x < 0)
+			chunkPos.x -= 1;
+		if (blockPos.z < 0)
+			chunkPos.y -= 1;
+
+		return chunkPos;
+	}
+
+	public void SetBlock(Vector3Int blockPos, BlockType type)
+	{
+		Vector2Int chunkPos = GetChunkFromBlockPos(blockPos);
+
+		GameObject chunkObject;
+		if(loadedChunks.TryGetValue(chunkPos,out chunkObject))
+		{
+			int chunkX = blockPos.x - chunkPos.x * Chunk.CHUNK_SIZE;
+			int chunkY = blockPos.y;
+			int chunkZ = blockPos.z - chunkPos.y * Chunk.CHUNK_SIZE;
+
+			chunkObject.GetComponent<Chunk>().SetBlockType(chunkX, chunkY, chunkZ, type);
+		}
 	}
 
 	GameObject CreateChunk(Vector2Int chunkPos)
