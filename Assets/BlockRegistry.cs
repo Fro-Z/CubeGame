@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Assertions;
 
 using BlockType = System.Int32;
 
@@ -15,10 +16,11 @@ public class BlockRegistry
 	/// </summary>
 	private class Block
 	{
-		public Block(string name, uint textureStartIdx)
+		public Block(string name, uint textureStartIdx, int maxDamage)
 		{
 			this._name = name;
 			this.textureStartIdx = textureStartIdx;
+			this._maxDamage = maxDamage;
 		}
 
 		public string name
@@ -26,7 +28,13 @@ public class BlockRegistry
 			get { return _name; }
 		}
 
+		public int maxDamage
+		{
+			get { return _maxDamage; }
+		}
+
 		private string _name;
+		private int _maxDamage;
 		protected uint textureStartIdx;
 
 		public virtual uint GetTextureIndex(Faces face)
@@ -40,7 +48,7 @@ public class BlockRegistry
 	/// </summary>
 	private class MultiFaceBlock : Block
 	{
-		public MultiFaceBlock(string name, uint textureStartIdx): base(name, textureStartIdx)
+		public MultiFaceBlock(string name, uint textureStartIdx, int maxDamage): base(name, textureStartIdx, maxDamage)
 		{
 
 		}
@@ -65,12 +73,12 @@ public class BlockRegistry
 
 	private static Block[] blockTypes =
 	{
-		new Block("Air", 0), //dummy block
-		new Block("Dirt", 0),
-		new MultiFaceBlock("Grass", 0),
-		new Block("Stone", 3),
-		new Block("Sand", 4),
-		new Block("Brick", 5)
+		new Block("Air", 0, 0), //dummy block
+		new Block("Dirt", 0, 2),
+		new MultiFaceBlock("Grass", 0, 2),
+		new Block("Stone", 3, 3),
+		new Block("Sand", 4, 1),
+		new Block("Brick", 5, 4)
 	};
 
 	public static BlockType GetTypeByName(string name)
@@ -82,7 +90,11 @@ public class BlockRegistry
 		throw new Exception("Invalid block type");
 	}
 
-
+	public static int GetMaxDamage(BlockType type)
+	{
+		Assert.IsTrue(type < blockTypes.Length);
+		return blockTypes[type].maxDamage;
+	}
 
 }
 

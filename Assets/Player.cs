@@ -109,7 +109,7 @@ public class Player : MonoBehaviour {
 
 	bool CanBuild(Vector3Int blockPos)
 	{
-		Vector3Int playerBlockPos = CubeWorld.GetCubeFromWorldPos(gameObject.transform.position);
+		Vector3Int playerBlockPos = CubeWorld.GetBlockPos(gameObject.transform.position);
 		if (blockPos.x == playerBlockPos.x && blockPos.z == playerBlockPos.z &&
 			Mathf.Abs(playerBlockPos.y - blockPos.y) <= 2)
 			return false; //prevent building inside yourself and falling through the new mesh
@@ -129,7 +129,7 @@ public class Player : MonoBehaviour {
 		{
 			//move hit position to roughly be in previous block
 			hit.point += (hit.normal * 0.1f);
-			blockPos = CubeWorld.GetCubeFromWorldPos(hit.point);
+			blockPos = CubeWorld.GetBlockPos(hit.point);
 			Debug.DrawLine(ray.origin, hit.point, Color.red, 10.0f, true);
 			return true;
 		}
@@ -150,7 +150,7 @@ public class Player : MonoBehaviour {
 		{
 			//move hit position to roughly be in previous block
 			hit.point -= (hit.normal * 0.1f);
-			blockPos = CubeWorld.GetCubeFromWorldPos(hit.point);
+			blockPos = CubeWorld.GetBlockPos(hit.point);
 			return true;
 		}
 
@@ -160,7 +160,10 @@ public class Player : MonoBehaviour {
 
 	private void HandleDestroyModeLogic()
 	{
-		
+		if (Input.GetKeyDown("mouse 0"))
+		{
+			DamageBlock();
+		}
 	}
 
 	private void UpdatePlacementCube()
@@ -188,6 +191,18 @@ public class Player : MonoBehaviour {
 		placementCube.GetComponent<MeshRenderer>().enabled = true;
 		Vector3 pivotOffset = new Vector3(0.5f, 0.5f, 0.5f) * CubeWorld.CUBE_SIZE;
 		placementCube.transform.position = aimpointBlock * CubeWorld.CUBE_SIZE + pivotOffset;
+	}
+
+	/// <summary>
+	/// Damage block in front of a player
+	/// </summary>
+	private void DamageBlock()
+	{
+		Vector3Int aimpointBlock;
+		if(GetAimpointNextBlock(out aimpointBlock))
+		{
+			world.DamageBlock(aimpointBlock);
+		}
 	}
 
 }

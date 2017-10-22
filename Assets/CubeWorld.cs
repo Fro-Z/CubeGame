@@ -1,7 +1,7 @@
-﻿using System.Collections;
+﻿using NUnit.Framework;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Assertions;
 
 using BlockType = System.Int32;
 
@@ -24,71 +24,107 @@ public class CubeWorld : MonoBehaviour {
 			{
 				LoadChunk(new Vector2Int(x, y));
 			}
-
 	}
 
-	public static Vector3Int GetCubeFromWorldPos(Vector3 worldPos)
+	/// <summary>
+	/// Get position of a block at world position
+	/// </summary>
+	public static Vector3Int GetBlockPos(Vector3 worldPos)
 	{
 		Vector3Int blockPos = new Vector3Int((int)worldPos.x / CUBE_SIZE, (int)worldPos.y / CUBE_SIZE, (int)worldPos.z / CUBE_SIZE);
 
 		//if worldPos coordinates are negative, we need to move resulting block pos by -1
 		if (worldPos.x < 0)
 			blockPos.x -= 1;
+		if (worldPos.y < 0)
+			blockPos.y -= 1;
 		if (worldPos.z < 0)
 			blockPos.z -= 1;
-
-		//keep height in the correct range
-		blockPos.y = Mathf.Clamp(blockPos.y, 0, Chunk.CHUNK_SIZE - 1);
 
 		return blockPos;
 	}
 
-	static Vector2Int GetChunkFromBlockPos(Vector3Int blockPos)
+	/// <summary>
+	/// Get chunk position from world position
+	/// </summary>
+	public static Vector2Int GetChunkPos(Vector3Int worldPos)
 	{
-		Vector2Int chunkPos = new Vector2Int(blockPos.x / Chunk.CHUNK_SIZE, blockPos.z / Chunk.CHUNK_SIZE);
+		Vector2Int chunkPos = new Vector2Int(worldPos.x / Chunk.CHUNK_SIZE, worldPos.z / Chunk.CHUNK_SIZE);
 
-		//if blockPos coordinates are negative, we need to move resulting chunk pos by -1
-		if (blockPos.x < 0)
+		//negative coordinates require special handling
+		if (worldPos.x < 0 && worldPos.x % Chunk.CHUNK_SIZE != 0)
 			chunkPos.x -= 1;
-		if (blockPos.z < 0)
+		if (worldPos.z < 0 && worldPos.z % Chunk.CHUNK_SIZE != 0)
 			chunkPos.y -= 1;
 
 		return chunkPos;
 	}
 
-	public void SetBlockType(Vector3Int blockPos, BlockType type)
+	/// <summary>
+	/// Get chunk offset (position of a block inside a chunk) from world pos. Correctly handles negative coordinates.
+	/// </summary>
+	public static Vector3Int GetChunkOffset(Vector3Int worldPos)
 	{
-		Vector2Int chunkPos = GetChunkFromBlockPos(blockPos);
+		Vector2Int chunkPos = GetChunkPos(worldPos);
+		Vector3Int chunkOffset = new Vector3Int(
+		(worldPos.x - chunkPos.x * Chunk.CHUNK_SIZE) % Chunk.CHUNK_SIZE,
+		worldPos.y,
+		(worldPos.z - chunkPos.y * Chunk.CHUNK_SIZE) % Chunk.CHUNK_SIZE);
 
+		return chunkOffset;
+	}
+
+
+	public void SetBlockType(Vector3Int worldPos, BlockType type)
+	{
+		Vector2Int chunkPos = GetChunkPos(worldPos);
+		
 		GameObject chunkObject;
-		if(loadedChunks.TryGetValue(chunkPos,out chunkObject))
+		if(loadedChunks.TryGetValue(chunkPos, out chunkObject))
 		{
-			int chunkX = blockPos.x - chunkPos.x * Chunk.CHUNK_SIZE;
-			int chunkY = blockPos.y;
-			int chunkZ = blockPos.z - chunkPos.y * Chunk.CHUNK_SIZE;
+			Vector3Int offset = GetChunkOffset(worldPos);
 
-			chunkObject.GetComponent<Chunk>().SetBlockType(chunkX, chunkY, chunkZ, type);
+			chunkObject.GetComponent<Chunk>().SetBlockType(offset.x, offset.y, offset.z, type);
 		}
 	}
 
-	public BlockType GetBlockType(Vector3Int blockPos)
+	public BlockType GetBlockType(Vector3Int worldPos)
 	{
-		Vector2Int chunkPos = GetChunkFromBlockPos(blockPos);
+		Vector2Int chunkPos = GetChunkPos(worldPos);
 
 		GameObject chunkObject;
 		if (loadedChunks.TryGetValue(chunkPos, out chunkObject))
 		{
-			int chunkX = blockPos.x - chunkPos.x * Chunk.CHUNK_SIZE;
-			int chunkY = blockPos.y;
-			int chunkZ = blockPos.z - chunkPos.y * Chunk.CHUNK_SIZE;
+			Vector3Int offset = GetChunkOffset(worldPos);
 
-			return chunkObject.GetComponent<Chunk>().GetBlockType(chunkX, chunkY, chunkZ);
+			return chunkObject.GetComponent<Chunk>().GetBlockType(offset.x, offset.y, offset.z);
 		}
 		else
 			return 0;
 	}
 
-	GameObject CreateChunk(Vector2Int chunkPos)
+	/// <summary>
+	/// Apply damage to a block. Damage exceeding block's maxDamage will destroy the block.
+	/// </summary>
+	public void DamageBlock(Vector3Int worldPos)
+	{
+		Vector2Int chunkPos = GetChunkPos(worldPos);
+
+		GameObject chunkObject;
+		if (loadedChunks.TryGetValue(chunkPos, out chunkObject))
+		{
+			Vector3Int offset = GetChunkOffset(worldPos);
+
+			chunkObject.GetComponent<Chunk>().DamageBlock(offset.x, offset.x, offset.x);
+		}
+	}
+
+	void Update()
+	{
+		UpdateVisibleChunks();
+	}
+
+	private GameObject CreateChunk(Vector2Int chunkPos)
 	{
 		GameObject chunkObject = new GameObject("chunk", typeof(MeshFilter), typeof(MeshRenderer), typeof(Chunk), typeof(MeshCollider));
 
@@ -105,11 +141,6 @@ public class CubeWorld : MonoBehaviour {
 		generator.FillChunk(chunk, chunkPos);
 
 		return chunkObject;
-	}
-
-	void Update ()
-	{
-		UpdateVisibleChunks();
 	}
 
 	private void UpdateVisibleChunks()
@@ -155,10 +186,10 @@ public class CubeWorld : MonoBehaviour {
 			LoadChunk(pos);
 	}
 
-	void LoadChunk(Vector2Int pos)
+	private void LoadChunk(Vector2Int pos)
 	{
 		loadedChunks.Add(pos, CreateChunk(pos));
 	}
-
-
 }
+
+

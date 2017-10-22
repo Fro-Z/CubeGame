@@ -63,6 +63,16 @@ public class Chunk : MonoBehaviour
 		isDirty = true;
 	}
 
+	public void DamageBlock(int x, int y, int z)
+	{
+		Assert.IsTrue(x >= 0 && y >= 0 && z >= 0 && x < CHUNK_SIZE && y < CHUNK_SIZE && z < CHUNK_SIZE, "Invalid chunk block position");
+		var blockIdx = GetBlockIdx(x, y, z);
+		blocks[blockIdx].damage++;
+
+		if (blocks[blockIdx].damage > BlockRegistry.GetMaxDamage(blocks[blockIdx].blockType))
+			SetBlockType(x, y, z, BLOCK_AIR);
+	}
+
 	private int GetBlockIdx(int x, int y, int z)
 	{
 		Assert.IsTrue(x >= 0 && y >= 0 && z >= 0 && x < CHUNK_SIZE && y < CHUNK_SIZE && z < CHUNK_SIZE, "Invalid chunk block position");
