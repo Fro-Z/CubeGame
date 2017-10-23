@@ -7,7 +7,7 @@ using BlockType = System.Int32;
 public class CubeWorld : MonoBehaviour {
 
 	public const int CUBE_SIZE = 2;
-	public const int viewDistance = 4;
+	public int viewDistance = 4;
 
 	public Material chunkMaterial;
 	private WorldGenerator generator = new WorldGenerator();
