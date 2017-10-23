@@ -42,6 +42,9 @@ public class Player : MonoBehaviour {
 
 	}
 
+	/// <summary>
+	/// Update block health progress bar
+	/// </summary>
 	void UpdateProgressBar()
 	{
 		var progressBar = progressBarObject.GetComponent<Image>();
@@ -78,14 +81,7 @@ public class Player : MonoBehaviour {
 
 	void ToggleMode()
 	{
-		if(mode == InteractionMode.BUILD)
-		{
-			mode = InteractionMode.DESTROY;
-		}
-		else
-		{
-			mode = InteractionMode.BUILD;
-		}
+		mode = mode == InteractionMode.BUILD ? InteractionMode.DESTROY : InteractionMode.BUILD;
 	}
 
 	private void HandleBuildModeLogic()

@@ -68,7 +68,7 @@ public class CubeWorld : MonoBehaviour {
 		Vector2Int chunkPos = GetChunkPos(worldPos);
 		Vector3Int chunkOffset = new Vector3Int(
 		(worldPos.x - chunkPos.x * Chunk.CHUNK_SIZE) % Chunk.CHUNK_SIZE,
-		worldPos.y,
+		(worldPos.y%Chunk.CHUNK_SIZE + Chunk.CHUNK_SIZE)%Chunk.CHUNK_SIZE ,
 		(worldPos.z - chunkPos.y * Chunk.CHUNK_SIZE) % Chunk.CHUNK_SIZE);
 
 		return chunkOffset;
